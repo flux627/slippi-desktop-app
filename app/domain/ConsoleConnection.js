@@ -92,25 +92,6 @@ export default class ConsoleConnection {
     	}
     	//setup event handler
     	host.on("connect",function(peer,data){
-    		//incoming peer connection
-    		peer.on("message",function(packet,channel){
-          var message = proto.slippicomm.SlippiMessage.deserializeBinary(packet.data())
-          console.log("Reading new message", packet.data());
-          if(message.hasConnectReply()) {
-            this.connDetails = this.getDefaultConnDetails();
-            this.connDetails.clientToken = 0;
-            this.connDetails.gameDataCursor = message.getConnectReply().getCursor();
-            this.connDetails.consoleNick = message.getConnectReply().getNick();
-            this.connDetails.version = message.getConnectReply().getVersion();
-
-            this.forceConsoleUiUpdate();
-            this.slpFileWriter.updateSettings(this.getSettings());
-          }
-          else {
-            //TODO Error handling here. Disconnect probably
-          }
-
-    		});
     	});
     });
 
@@ -198,7 +179,7 @@ export default class ConsoleConnection {
                 }
                 //connection to the remote host succeeded
                 peer.ping();
-    			   });
+	   });
 
     //succesful connect event can also be handled with an event handler
     peer.on("connect",function() {
@@ -214,8 +195,24 @@ export default class ConsoleConnection {
 
     });
 
-    peer.on("message", function(packet, channel_id) {
-    	//handle packet from peer
+    //incoming peer connection
+    peer.on("message",function(packet,channel){
+      var message = proto.slippicomm.SlippiMessage.deserializeBinary(packet.data())
+      console.log("Reading new message", packet.data());
+      if(message.hasConnectReply()) {
+        this.connDetails = this.getDefaultConnDetails();
+        this.connDetails.clientToken = 0;
+        this.connDetails.gameDataCursor = message.getConnectReply().getCursor();
+        this.connDetails.consoleNick = message.getConnectReply().getNick();
+        this.connDetails.version = message.getConnectReply().getVersion();
+
+        this.forceConsoleUiUpdate();
+        this.slpFileWriter.updateSettings(this.getSettings());
+      }
+      else {
+        //TODO Error handling here. Disconnect probably
+      }
+
     });
 
     peer.on("disconnect", function(data) {
