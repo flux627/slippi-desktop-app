@@ -152,17 +152,18 @@ export default class ConsoleConnection {
     this.slpFileWriter.connectOBS();
     this.dolphinManager.updateSettings(connectionSettings);
 
-    if (this.port && this.port !== Ports.WII_LEGACY && this.port !== Ports.WII_DEFAULT) {
-      // If port is manually set, use that port. Don't do this if the port is set to legacy as
-      // somebody might have accidentally set it to that and they would encounter issues with
-      // the new Nintendont
-      this.connectOnPort(this.port);
-      return;
-    }
+    // if (this.port && this.port !== Ports.WII_LEGACY && this.port !== Ports.WII_DEFAULT) {
+    //   // If port is manually set, use that port. Don't do this if the port is set to legacy as
+    //   // somebody might have accidentally set it to that and they would encounter issues with
+    //   // the new Nintendont
+    //   this.connectOnPort(this.port);
+    //   return;
+    // }
 
     this.connectToSpectate();
-    this.connectOnPort(Ports.WII_DEFAULT);
-    this.connectOnPort(Ports.WII_LEGACY);
+    // TODO Turn these back on. But it was causing issues
+    // this.connectOnPort(Ports.WII_DEFAULT);
+    // this.connectOnPort(Ports.WII_LEGACY);
   }
 
   connectToSpectate() {
@@ -196,20 +197,36 @@ export default class ConsoleConnection {
     });
 
     //incoming peer connection
-    peer.on("message",function(packet,channel){
+    peer.on("message", (packet,channel) => {
       var message = proto.slippicomm.SlippiMessage.deserializeBinary(packet.data())
-      console.log("Reading new message", packet.data());
       if(message.hasConnectReply()) {
-        this.connDetails = this.getDefaultConnDetails();
         this.connDetails.clientToken = 0;
         this.connDetails.gameDataCursor = message.getConnectReply().getCursor();
         this.connDetails.consoleNick = message.getConnectReply().getNick();
         this.connDetails.version = message.getConnectReply().getVersion();
+        this.connectionStatus = ConnectionStatus.CONNECTED;
+        console.log(this.connDetails);
 
         this.forceConsoleUiUpdate();
         this.slpFileWriter.updateSettings(this.getSettings());
       }
-      else {
+      else if(message.hasGameEvent()) {
+        // Handle incoming game event
+        const cursor = message.getGameEvent().getCursor();
+        if (this.connDetails.gameDataCursor != cursor) {
+          log.warn(
+            "Position of received data is not what was expected. Expected, Received:",
+            this.connDetails.gameDataCursor, cursor
+          );
+
+          // The readPos is not the one we are waiting on, throw error
+          throw new Error("Position of received data is incorrect.");
+        }
+
+        this.connDetails.gameDataCursor = message.getGameEvent().getNextCursor();
+
+        const data = Uint8Array.from(message.getGameEvent().getPayload());
+        this.handleReplayData(data);
         //TODO Error handling here. Disconnect probably
       }
 
