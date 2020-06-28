@@ -205,7 +205,6 @@ export default class ConsoleConnection {
         this.connDetails.consoleNick = message.getConnectReply().getNick();
         this.connDetails.version = message.getConnectReply().getVersion();
         this.connectionStatus = ConnectionStatus.CONNECTED;
-        console.log(this.connDetails);
 
         this.forceConsoleUiUpdate();
         this.slpFileWriter.updateSettings(this.getSettings());

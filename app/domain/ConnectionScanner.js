@@ -5,6 +5,8 @@ import moment from 'moment';
 import { store } from '../index';
 import { connectionStateChanged } from '../actions/console';
 
+var messages = require('./slippicomm_pb');
+
 export default class ConnectionScanner {
   constructor() {
     this.isScanning = false;
@@ -48,10 +50,35 @@ export default class ConnectionScanner {
 
   handleMessageReceive = (msg, rinfo) => {
     if (msg.slice(0, 10).toString() !== "SLIP_READY") {
-      // This is not a Slippi broadcast message, do nothing
+      // Try reading this as a slippi prptobuf advertisement instead
+      const message = proto.slippicomm.SlippiMessage.deserializeBinary(msg)
+      if(message.hasAdvertisement()) {
+
+        const ip = rinfo.address;
+
+        const previous = _.get(this.availableConnectionsByIp, ip);
+        const previousTimeoutHandler = _.get(previous, 'timeout');
+        const previousFirstFound = _.get(previous, 'firstFound');
+
+        const timeoutHandler = setTimeout(() => {
+          delete this.availableConnectionsByIp[ip];
+          this.forceConsoleUiUpdate();
+        }, 35000);
+
+        this.availableConnectionsByIp[ip] = {
+          'ip': rinfo.address,
+          'mac': "",
+          'name': message.getAdvertisement().getNick(),
+          'timeout': timeoutHandler,
+          'firstFound': previousFirstFound || moment(),
+        };
+
+        // Force UI update to show new connection
+        this.forceConsoleUiUpdate();
+      }
       return;
     }
-    
+
     /* The structure of broadcast messages from the Wii should be:
      *  unsigned char cmd[10]; // 0 - 10
      *  u8 mac_addr[6]; // 10 - 16
@@ -79,7 +106,7 @@ export default class ConnectionScanner {
     const previousTimeoutHandler = _.get(previous, 'timeout');
     const previousFirstFound = _.get(previous, 'firstFound');
 
-    // If we have received a new message from this IP, clear the previous 
+    // If we have received a new message from this IP, clear the previous
     // timeout hanlder so that this IP doesn't get removed
     if (previousTimeoutHandler) {
       clearTimeout(previousTimeoutHandler);
@@ -98,7 +125,7 @@ export default class ConnectionScanner {
       'timeout': timeoutHandler,
       'firstFound': previousFirstFound || moment(),
     };
-    
+
     // Force UI update to show new connection
     this.forceConsoleUiUpdate();
   }
