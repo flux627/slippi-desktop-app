@@ -184,8 +184,6 @@ export default class ConsoleConnection {
 
     //succesful connect event can also be handled with an event handler
     peer.on("connect",function() {
-      console.log("CONNECTED YAY");
-
       var message = new messages.SlippiMessage();
       var connect_request = new messages.ConnectRequest()
       connect_request.cursor = 0 //TODO current cursor here
