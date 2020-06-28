@@ -18,6 +18,8 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 */
 
+var enet = require("enet");
+var messages = require('./slippicomm_pb');
 
 import net from 'net';
 import inject from 'reconnect-core';
@@ -71,27 +73,61 @@ export default class ConsoleConnection {
     this.dolphinManager = new DolphinManager(`mirror-${this.id}`, { mode: 'mirror' });
 
     // Initialize SlpFileWriter for writting files
-    const slpSettings = {targetFolder: this.targetFolder, 
-      onFileStateChange: this.fileStateChangeHandler, 
+    const slpSettings = {targetFolder: this.targetFolder,
+      onFileStateChange: this.fileStateChangeHandler,
       obsIP: this.obsIP, obsSourceName: this.obsSourceName,
       obsPassword: this.obsPassword, id: this.id,
       isRelaying: this.isRelaying,
     }
     this.slpFileWriter = new SlpFileWriter(slpSettings);
+
+    this.client = enet.createClient({
+    	peers: 1, /* only allow 1 outgoing connection */
+    	channels: 3, /* Number of channels */
+    	down: 0,
+    	up: 0
+    },function(err, host){
+    	if(err){
+    		return; /* host creation failed */
+    	}
+    	//setup event handler
+    	host.on("connect",function(peer,data){
+    		//incoming peer connection
+    		peer.on("message",function(packet,channel){
+          var message = proto.slippicomm.SlippiMessage.deserializeBinary(packet.data())
+          console.log("Reading new message", packet.data());
+          if(message.hasConnectReply()) {
+            this.connDetails = this.getDefaultConnDetails();
+            this.connDetails.clientToken = 0;
+            this.connDetails.gameDataCursor = message.getConnectReply().getCursor();
+            this.connDetails.consoleNick = message.getConnectReply().getNick();
+            this.connDetails.version = message.getConnectReply().getVersion();
+
+            this.forceConsoleUiUpdate();
+            this.slpFileWriter.updateSettings(this.getSettings());
+          }
+          else {
+            //TODO Error handling here. Disconnect probably
+          }
+
+    		});
+    	});
+    });
+
   }
 
   forceConsoleUiUpdate() {
     store.dispatch(connectionStateChanged());
   }
-  
+
   fileStateChangeHandler = () => {
     this.forceConsoleUiUpdate();
   }
 
   getDefaultConnDetails() {
     return {
-      gameDataCursor: Uint8Array.from([0, 0, 0, 0, 0, 0, 0, 0]), 
-      consoleNick: "unknown", 
+      gameDataCursor: Uint8Array.from([0, 0, 0, 0, 0, 0, 0, 0]),
+      consoleNick: "unknown",
       version: "",
       clientToken: 0,
     };
@@ -143,8 +179,49 @@ export default class ConsoleConnection {
       return;
     }
 
+    this.connectToSpectate();
     this.connectOnPort(Ports.WII_DEFAULT);
     this.connectOnPort(Ports.WII_LEGACY);
+  }
+
+  connectToSpectate() {
+    var server_addr = new enet.Address(this.ipAddress, 51441);
+
+    /* Initiate the connection, allocating the two channels 0 and 1. */
+    var peer = this.client.connect(server_addr,
+        3, /* channels */
+        1337, /* data to send, (received in 'connect' event at server) */
+        function(err,peer){ /* a connect callback function */
+                if(err){
+                  console.error(err);//either connect timeout or maximum peers exceeded
+                  return;
+                }
+                //connection to the remote host succeeded
+                peer.ping();
+    			   });
+
+    //succesful connect event can also be handled with an event handler
+    peer.on("connect",function() {
+      console.log("CONNECTED YAY");
+
+      var message = new messages.SlippiMessage();
+      var connect_request = new messages.ConnectRequest()
+      connect_request.cursor = 0 //TODO current cursor here
+      message.setConnectRequest(connect_request);
+
+      var packet = new enet.Packet(new Buffer(message.serializeBinary()), enet.PACKET_FLAG.RELIABLE);
+      var err = peer.send(0, packet);
+
+    });
+
+    peer.on("message", function(packet, channel_id) {
+    	//handle packet from peer
+    });
+
+    peer.on("disconnect", function(data) {
+    	//peer disconnected
+    });
+
   }
 
   connectOnPort(port) {
@@ -178,7 +255,7 @@ export default class ConsoleConnection {
           log.info(`Connected to source with type: ${commState}`);
           log.info(data.toString("hex"));
         }
-        
+
         if (commState === "legacy") {
           // If the first message received was not a handshake message, either we
           // connected to an old Nintendont version or a relay instance
@@ -195,10 +272,10 @@ export default class ConsoleConnection {
             rcvData: data,
           });
           client.destroy();
-          
+
           return;
         }
-        
+
         const messages = consoleComms.getMessages();
 
         // Process all of the received messages
@@ -288,7 +365,7 @@ export default class ConsoleConnection {
       connection.reconnect = false; // eslint-disable-line
       connection.disconnect();
     });
-    
+
     this.clientsByPort.forEach((client) => {
       client.destroy();
     });
@@ -307,7 +384,7 @@ export default class ConsoleConnection {
     ]);
 
     const dataStart = data.slice(4, 13);
-    
+
     return dataStart.equals(openingBytes) ? "normal" : "legacy";
   }
 
@@ -322,7 +399,7 @@ export default class ConsoleConnection {
       // TODO: active Wii connection for the relay connection to keep itself alive
       const fakeKeepAlive = Buffer.from("HELO\0");
       this.slpFileWriter.handleData(fakeKeepAlive);
-      
+
       break;
     case commMsgTypes.REPLAY:
       // console.log("Replay message type received");

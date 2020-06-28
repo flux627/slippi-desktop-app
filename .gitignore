@@ -48,3 +48,6 @@ main.js.map
 npm-debug.log.*
 
 dolphin/
+
+# protobuf generated files
+app/domain/slippicomm_pb.js
