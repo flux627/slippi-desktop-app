@@ -24,7 +24,7 @@
     "postlint-fix": "prettier --ignore-path .eslintignore --single-quote --write '**/*.{*{js,jsx,json},babelrc,eslintrc,prettierrc,stylelintrc}'",
     "postlint-styles-fix": "prettier --ignore-path .eslintignore --single-quote --write '**/*.{css,scss}'",
     "prestart": "yarn build",
-    "prebuild": "protoc --proto_path=app/domain/proto/ --js_out=import_style=commonjs,binary:app/domain/ app/domain/proto/slippicomm.proto",
+    "prebuild": "./node_modules/protobufjs/bin/pbjs -t static-module -p app/domain/proto/ -o app/domain/slippicomm_pb.js -w es6 app/domain/proto/slippicomm.proto",
     "start": "cross-env NODE_ENV=production electron ./app/main.prod.js",
     "start-main-dev": "cross-env HOT=1 NODE_ENV=development electron -r @babel/register ./app/main.dev.js",
     "start-renderer-dev": "cross-env NODE_ENV=development webpack-dev-server --config configs/webpack.config.renderer.dev.babel.js",
@@ -232,7 +232,6 @@
     "optimize-css-assets-webpack-plugin": "^5.0.1",
     "prettier": "^1.15.2",
     "protobufjs": "^6.9.0",
-    "protoc": "^1.0.4",
     "react-test-renderer": "^16.6.3",
     "redux-logger": "^3.0.6",
     "rimraf": "^2.6.2",
@@ -261,6 +260,7 @@
     "@google-cloud/storage": "^2.4.2",
     "@shelacek/ubjson": "^1.0.1",
     "async-retry": "^1.2.3",
+    "bufferutil": "^4.0.1",
     "classnames": "^2.2.6",
     "devtron": "^1.4.0",
     "electron-debug": "^2.0.0",
@@ -274,6 +274,7 @@
     "lodash": "^4.17.11",
     "moment": "^2.23.0",
     "obs-websocket-js": "^3.0.0",
+    "protobufjs/minimal": "^6.9.0",
     "prop-types": "^15.6.2",
     "react": "^16.6.3",
     "react-dom": "^16.6.3",
@@ -288,7 +289,8 @@
     "semantic-ui-react": "^0.84.0",
     "semver": "^5.6.0",
     "slp-parser-js": "^4.0.0",
-    "source-map-support": "^0.5.9"
+    "source-map-support": "^0.5.9",
+    "utf-8-validate": "^5.0.2"
   },
   "devEngines": {
     "node": ">=7.x",

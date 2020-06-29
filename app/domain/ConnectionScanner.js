@@ -5,35 +5,13 @@ import moment from 'moment';
 import { store } from '../index';
 import { connectionStateChanged } from '../actions/console';
 
-var messages = require('./slippicomm_pb');
+var proto = require("./slippicomm_pb.js");
 
 export default class ConnectionScanner {
   constructor() {
     this.isScanning = false;
     this.availableConnectionsByIp = {};
     this.server = null;
-
-    // TODO: Remove
-    // this.availableConnectionsByIp = {
-    //   '192.168.1.500': {
-    //     'ip': '192.168.1.500',
-    //     'mac': '1241:4214',
-    //     'name': "Station Foo",
-    //     'firstFound': moment(),
-    //   },
-    //   '192.168.1.501': {
-    //     'ip': '192.168.1.501',
-    //     'mac': '1241:4214',
-    //     'name': "Station Bar",
-    //     'firstFound': moment(),
-    //   },
-    //   '192.168.1.42': {
-    //     'ip': '192.168.1.42',
-    //     'mac': '1241:4214',
-    //     'name': "Station Zoob",
-    //     'firstFound': moment(),
-    //   },
-    // };
   }
 
   forceConsoleUiUpdate() {
@@ -51,8 +29,9 @@ export default class ConnectionScanner {
   handleMessageReceive = (msg, rinfo) => {
     if (msg.slice(0, 10).toString() !== "SLIP_READY") {
       // Try reading this as a slippi prptobuf advertisement instead
-      const message = proto.slippicomm.SlippiMessage.deserializeBinary(msg)
-      if(message.hasAdvertisement()) {
+      const message = proto.slippicomm.SlippiMessage.decode(msg)
+
+      if(message.envelope == "advertisement") {
 
         const ip = rinfo.address;
 
@@ -68,7 +47,7 @@ export default class ConnectionScanner {
         this.availableConnectionsByIp[ip] = {
           'ip': rinfo.address,
           'mac': "",
-          'name': message.getAdvertisement().getNick(),
+          'name': message.advertisement.nick,
           'timeout': timeoutHandler,
           'firstFound': previousFirstFound || moment(),
         };
