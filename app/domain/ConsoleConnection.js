@@ -231,7 +231,7 @@ export default class ConsoleConnection {
     });
 
     peer.on("disconnect", function(data) {
-    	//peer disconnected
+    	// TODO peer disconnected
     });
 
   }
