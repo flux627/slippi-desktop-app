@@ -80,11 +80,13 @@ export default class ConsoleConnection {
     }
     this.slpFileWriter = new SlpFileWriter(slpSettings);
 
-    this.client = enet.createClient({
-    	peers: 1, /* only allow 1 outgoing connection */
-    	channels: 3, /* Number of channels */
-    	down: 0,
-    	up: 0
+    var local_addr = {address:"0.0.0.0", port:7777};
+    this.client = enet.createServer({
+    	address: local_addr, /* the address the server host will bind to */
+    	peers:32, /* allow up to 32 clients and/or outgoing connections */
+    	channels:3,
+    	down:0,
+    	up:0
     },function(err, host){
     	if(err){
     		return; /* host creation failed */
@@ -93,7 +95,6 @@ export default class ConsoleConnection {
     	host.on("connect",function(peer,data){
     	});
     });
-
   }
 
   forceConsoleUiUpdate() {
