@@ -19,7 +19,6 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
 var enet = require("enet");
-var proto = require("./slippicomm_pb.js");
 
 import net from 'net';
 import inject from 'reconnect-core';
@@ -185,32 +184,37 @@ export default class ConsoleConnection {
     //succesful connect event can also be handled with an event handler
     peer.on("connect", () => {
 
-      var message = proto.slippicomm.SlippiMessage.create({
-        connectRequest: { cursor: this.connDetails.gameDataCursor}
-      });
+      const connect_request = {
+        "type" : "connect_request",
+        "cursor" : 0 //TODO this.connDetails.gameDataCursor
+      };
 
-      var packet = new enet.Packet(proto.slippicomm.SlippiMessage.encode(message).finish(), enet.PACKET_FLAG.RELIABLE);
+      var packet = new enet.Packet(JSON.stringify(connect_request), enet.PACKET_FLAG.RELIABLE);
       var err = peer.send(0, packet);
 
     });
 
     //incoming peer connection
     peer.on("message", (packet,channel) => {
-      var message = proto.slippicomm.SlippiMessage.decode(packet.data())
-      if(message.envelope == "connectReply") {
+      if(packet.data() == 0){
+          return;
+      }
+
+      const message = JSON.parse(packet.data().toString('ascii'));
+      if(message["type"] == "connect_reply") {
 
         this.connDetails.clientToken = 0;
-        this.connDetails.gameDataCursor = message.connectReply.cursor;
-        this.connDetails.consoleNick = message.connectReply.nick;
-        this.connDetails.version = message.connectReply.version;
+        this.connDetails.gameDataCursor = message["cursor"];
+        this.connDetails.consoleNick = message["nick"];
+        this.connDetails.version = message["version"];
         this.connectionStatus = ConnectionStatus.CONNECTED;
 
         this.forceConsoleUiUpdate();
         this.slpFileWriter.updateSettings(this.getSettings());
       }
-      else if(message.envelope == "gameEvent") {
+      else if(message["type"] == "game_event") {
         // Handle incoming game event
-        const cursor = message.gameEvent.cursor;
+        const cursor = message["cursor"];
         if (this.connDetails.gameDataCursor != cursor) {
           log.warn(
             "Position of received data is not what was expected. Expected, Received:",
@@ -221,9 +225,8 @@ export default class ConsoleConnection {
           throw new Error("Position of received data is incorrect.");
         }
 
-        this.connDetails.gameDataCursor = message.gameEvent.nextCursor;
-
-        const data = Uint8Array.from(message.gameEvent.payload);
+        this.connDetails.gameDataCursor = message["next_cursor"];
+        const data = Uint8Array.from(new Buffer(message["payload"], 'base64'));
         this.handleReplayData(data);
         //TODO Error handling here. Disconnect probably
       }

@@ -5,8 +5,6 @@ import moment from 'moment';
 import { store } from '../index';
 import { connectionStateChanged } from '../actions/console';
 
-var proto = require("./slippicomm_pb.js");
-
 export default class ConnectionScanner {
   constructor() {
     this.isScanning = false;
@@ -28,33 +26,6 @@ export default class ConnectionScanner {
 
   handleMessageReceive = (msg, rinfo) => {
     if (msg.slice(0, 10).toString() !== "SLIP_READY") {
-      // Try reading this as a slippi prptobuf advertisement instead
-      const message = proto.slippicomm.SlippiMessage.decode(msg)
-
-      if(message.envelope == "advertisement") {
-
-        const ip = rinfo.address;
-
-        const previous = _.get(this.availableConnectionsByIp, ip);
-        const previousTimeoutHandler = _.get(previous, 'timeout');
-        const previousFirstFound = _.get(previous, 'firstFound');
-
-        const timeoutHandler = setTimeout(() => {
-          delete this.availableConnectionsByIp[ip];
-          this.forceConsoleUiUpdate();
-        }, 35000);
-
-        this.availableConnectionsByIp[ip] = {
-          'ip': rinfo.address,
-          'mac': "",
-          'name': message.advertisement.nick,
-          'timeout': timeoutHandler,
-          'firstFound': previousFirstFound || moment(),
-        };
-
-        // Force UI update to show new connection
-        this.forceConsoleUiUpdate();
-      }
       return;
     }
 
