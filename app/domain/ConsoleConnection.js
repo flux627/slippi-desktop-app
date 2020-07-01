@@ -167,6 +167,10 @@ export default class ConsoleConnection {
   }
 
   connectToSpectate() {
+
+    this.connectionStatus = ConnectionStatus.CONNECTING;
+    this.forceConsoleUiUpdate();
+    
     var server_addr = new enet.Address(this.ipAddress, 51441);
 
     /* Initiate the connection, allocating the two channels 0 and 1. */
