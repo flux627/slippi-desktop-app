@@ -79,22 +79,6 @@ export default class ConsoleConnection {
       isRelaying: this.isRelaying,
     }
     this.slpFileWriter = new SlpFileWriter(slpSettings);
-
-    var local_addr = {address:"0.0.0.0", port:7777};
-    this.client = enet.createServer({
-    	address: local_addr, /* the address the server host will bind to */
-    	peers:32, /* allow up to 32 clients and/or outgoing connections */
-    	channels:3,
-    	down:0,
-    	up:0
-    },function(err, host){
-    	if(err){
-    		return; /* host creation failed */
-    	}
-    	//setup event handler
-    	host.on("connect",function(peer,data){
-    	});
-    });
   }
 
   forceConsoleUiUpdate() {
@@ -168,9 +152,23 @@ export default class ConsoleConnection {
 
   connectToSpectate() {
 
+    var local_addr = {address:"0.0.0.0", port:14415};
+    this.client = enet.createServer({
+      address: local_addr, /* the address the server host will bind to */
+      peers:32, /* allow up to 32 clients and/or outgoing connections */
+      channels:3,
+      down:0,
+      up:0
+    },function(err, host){
+      if(err){
+        console.error("For now, you can only spectate one game at a time, sorry!");
+        return; /* host creation failed */
+      }
+    });
+
     this.connectionStatus = ConnectionStatus.CONNECTING;
     this.forceConsoleUiUpdate();
-    
+
     var server_addr = new enet.Address(this.ipAddress, 51441);
 
     /* Initiate the connection, allocating the two channels 0 and 1. */
@@ -389,6 +387,8 @@ export default class ConsoleConnection {
     this.clientsByPort.forEach((client) => {
       client.destroy();
     });
+
+    this.client.destroy();
 
     this.connectionStatus = ConnectionStatus.DISCONNECTED;
     this.forceConsoleUiUpdate();
