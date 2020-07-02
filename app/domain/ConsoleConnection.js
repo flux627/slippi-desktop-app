@@ -18,7 +18,7 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 */
 
-var enet = require("enet");
+/* eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 
 import net from 'net';
 import inject from 'reconnect-core';
@@ -30,6 +30,8 @@ import { connectionStateChanged } from '../actions/console';
 import DolphinManager from './DolphinManager';
 import SlpFileWriter from './SlpFileWriter';
 import ConsoleCommunication, { types as commMsgTypes } from './ConsoleCommunication';
+
+const enet = require("enet");
 
 export const ConnectionStatus = {
   DISCONNECTED: 0,
@@ -151,60 +153,55 @@ export default class ConsoleConnection {
   }
 
   connectToSpectate() {
-
-    var local_addr = {address:"0.0.0.0", port:14415};
     this.client = enet.createServer({
-      address: local_addr, /* the address the server host will bind to */
+      address: {address:"0.0.0.0", port:14415}, /* the address the server host will bind to */
       peers:32, /* allow up to 32 clients and/or outgoing connections */
       channels:3,
       down:0,
-      up:0
-    },function(err, host){
+      up:0,
+    }, (err, _host) => {
       if(err){
         console.error("For now, you can only spectate one game at a time, sorry!");
-        return; /* host creation failed */
       }
     });
 
     this.connectionStatus = ConnectionStatus.CONNECTING;
     this.forceConsoleUiUpdate();
 
-    var server_addr = new enet.Address(this.ipAddress, 51441);
-
     /* Initiate the connection, allocating the two channels 0 and 1. */
-    var peer = this.client.connect(server_addr,
-        3, /* channels */
-        1337, /* data to send, (received in 'connect' event at server) */
-        function(err,peer){ /* a connect callback function */
-                if(err){
-                  console.error(err);//either connect timeout or maximum peers exceeded
-                  return;
-                }
-                //connection to the remote host succeeded
-                peer.ping();
+    const peer = this.client.connect(
+      {address:this.ipAddress, port:51441},
+      3, /* channels */
+      1337, /* data to send, (received in 'connect' event at server) */
+      (err, newPeer) => { /* a connect callback function */
+        if(err){
+          console.error(err); // either connect timeout or maximum peers exceeded
+          return;
+        }
+        // connection to the remote host succeeded
+        newPeer.ping();
 	   });
 
-    //succesful connect event can also be handled with an event handler
+    // succesful connect event can also be handled with an event handler
     peer.on("connect", () => {
 
-      const connect_request = {
+      const connectRequest = {
         "type" : "connect_request",
-        "cursor" : 0 //TODO this.connDetails.gameDataCursor
+        "cursor" : 0, // TODO this.connDetails.gameDataCursor
       };
 
-      var packet = new enet.Packet(JSON.stringify(connect_request), enet.PACKET_FLAG.RELIABLE);
-      var err = peer.send(0, packet);
-
+      const packet = new enet.Packet(JSON.stringify(connectRequest), enet.PACKET_FLAG.RELIABLE);
+      peer.send(0, packet);
     });
 
-    //incoming peer connection
-    peer.on("message", (packet,channel) => {
-      if(packet.data() == 0){
-          return;
+    // incoming peer connection
+    peer.on("message", (packet, _channel) => {
+      if(packet.data().length === 0){
+        return;
       }
 
       const message = JSON.parse(packet.data().toString('ascii'));
-      if(message["type"] == "connect_reply") {
+      if(message["type"] === "connect_reply") {
 
         this.connDetails.clientToken = 0;
         this.connDetails.gameDataCursor = message["cursor"];
@@ -215,10 +212,10 @@ export default class ConsoleConnection {
         this.forceConsoleUiUpdate();
         this.slpFileWriter.updateSettings(this.getSettings());
       }
-      else if(message["type"] == "game_event") {
+      else if(message["type"] === "game_event") {
         // Handle incoming game event
         const cursor = message["cursor"];
-        if (this.connDetails.gameDataCursor != cursor) {
+        if (this.connDetails.gameDataCursor !== cursor) {
           log.warn(
             "Position of received data is not what was expected. Expected, Received:",
             this.connDetails.gameDataCursor, cursor
@@ -229,15 +226,14 @@ export default class ConsoleConnection {
         }
 
         this.connDetails.gameDataCursor = message["next_cursor"];
-        const data = Uint8Array.from(new Buffer(message["payload"], 'base64'));
-        this.handleReplayData(data);
-        //TODO Error handling here. Disconnect probably
+        this.handleReplayData(Buffer.from(message["payload"], 'base64'));
       }
 
     });
 
-    peer.on("disconnect", function(data) {
-    	// TODO peer disconnected
+    peer.on("disconnect", (_data) => {
+      this.connectionStatus = ConnectionStatus.DISCONNECTED;
+      this.forceConsoleUiUpdate();
     });
 
   }
