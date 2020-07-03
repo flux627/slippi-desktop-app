@@ -169,7 +169,7 @@ export default class ConsoleConnection {
     this.forceConsoleUiUpdate();
 
     /* Initiate the connection, allocating the two channels 0 and 1. */
-    const peer = this.client.connect(
+    this.peer = this.client.connect(
       {address:this.ipAddress, port:51441},
       3, /* channels */
       1337, /* data to send, (received in 'connect' event at server) */
@@ -183,7 +183,7 @@ export default class ConsoleConnection {
 	   });
 
     // succesful connect event can also be handled with an event handler
-    peer.on("connect", () => {
+    this.peer.on("connect", () => {
 
       const connectRequest = {
         "type" : "connect_request",
@@ -191,11 +191,11 @@ export default class ConsoleConnection {
       };
 
       const packet = new enet.Packet(JSON.stringify(connectRequest), enet.PACKET_FLAG.RELIABLE);
-      peer.send(0, packet);
+      this.peer.send(0, packet);
     });
 
     // incoming peer connection
-    peer.on("message", (packet, _channel) => {
+    this.peer.on("message", (packet, _channel) => {
       if(packet.data().length === 0){
         return;
       }
@@ -231,7 +231,9 @@ export default class ConsoleConnection {
 
     });
 
-    peer.on("disconnect", (_data) => {
+    this.peer.on("disconnect", (_data) => {
+      this.client.destroy();
+
       this.connectionStatus = ConnectionStatus.DISCONNECTED;
       this.forceConsoleUiUpdate();
     });
@@ -384,10 +386,8 @@ export default class ConsoleConnection {
       client.destroy();
     });
 
-    this.client.destroy();
-
-    this.connectionStatus = ConnectionStatus.DISCONNECTED;
-    this.forceConsoleUiUpdate();
+    // A disconnect event will fire on the peer when this completes
+    this.peer.disconnect();
   }
 
   getInitialCommState(data) {
