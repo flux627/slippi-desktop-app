@@ -93,7 +93,7 @@ export default class ConsoleConnection {
 
   getDefaultConnDetails() {
     return {
-      gameDataCursor: Uint8Array.from([0, 0, 0, 0, 0, 0, 0, 0]),
+      gameDataCursor: 0,
       consoleNick: "unknown",
       version: "",
       clientToken: 0,
@@ -187,7 +187,7 @@ export default class ConsoleConnection {
 
       const connectRequest = {
         "type" : "connect_request",
-        "cursor" : 0, // TODO this.connDetails.gameDataCursor
+        "cursor" : this.connDetails.gameDataCursor,
       };
 
       const packet = new enet.Packet(JSON.stringify(connectRequest), enet.PACKET_FLAG.RELIABLE);
